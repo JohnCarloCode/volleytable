@@ -155,7 +155,7 @@ export default function PlayerModal({ initial, labels, onSave, onClose }) {
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="p. ej. Marta"
+          placeholder="Demple"
           className="mb-4 w-full rounded border border-hairline bg-ink px-3 py-2.5 text-base text-txt outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent/40"
         />
 
@@ -165,7 +165,7 @@ export default function PlayerModal({ initial, labels, onSave, onClose }) {
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="p. ej. 7 o MG"
+          placeholder="5"
           maxLength={3}
           className="mb-4 w-full rounded border border-hairline bg-ink px-3 py-2.5 text-base text-txt outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent/40"
         />
