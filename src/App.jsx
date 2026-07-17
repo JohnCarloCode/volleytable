@@ -564,7 +564,7 @@ function BenchColumn({ title, side, hot, columnRef, players, benchSelId, onSelec
       <div className="font-display mb-1.5 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
         <span className="truncate">{title}</span>
       </div>
-      <div className="thin-scroll flex min-h-[56px] items-center gap-2 overflow-x-auto pb-1">
+      <div className="thin-scroll flex h-[84px] items-center gap-2 overflow-x-auto px-1 pb-1">
         {players.length === 0 ? (
           <button
             onClick={() => onAdd({ placement: 'bench', side })}
