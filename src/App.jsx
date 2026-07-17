@@ -118,7 +118,25 @@ export default function App() {
     setSelectedId(null)
   }
 
-  const handleSelectCourt = (id) => {
+  // Intercambio campo <-> campo (mismo campo o distinto). Se llama en un toque
+  // limpio; el arrastre nunca llega aquí.
+  const swapCourt = (aId, bId) => {
+    setPlayers((prev) => {
+      const a = prev.find((p) => p.id === aId)
+      const b = prev.find((p) => p.id === bId)
+      if (!a || !b) return prev
+      return prev.map((p) => {
+        if (p.id === aId) return { ...p, side: b.side, d: b.d, s: b.s }
+        if (p.id === bId) return { ...p, side: a.side, d: a.d, s: a.s }
+        return p
+      })
+    })
+    setSelectedId(null)
+  }
+
+  // Toque limpio sobre una ficha del campo (no arrastre)
+  const handleTapCourt = (id) => {
+    // Flujo banquillo -> campo (mismo lado)
     if (benchSelId && benchSelId !== id) {
       const target = players.find((p) => p.id === id)
       if (target && target.side === benchSel?.side) {
@@ -128,7 +146,22 @@ export default function App() {
       }
       return
     }
-    setSelectedId(id)
+
+    // Con otra ficha ya armada: intentar intercambio jugador <-> jugador
+    if (selectedId && selectedId !== id) {
+      const sel = players.find((p) => p.id === selectedId)
+      const tgt = players.find((p) => p.id === id)
+      if (sel && tgt && !sel.isBall && !tgt.isBall) {
+        swapCourt(sel.id, tgt.id)
+        return
+      }
+      // Un balón está implicado: no se intercambia, solo se selecciona lo tocado
+      setSelectedId(id)
+      return
+    }
+
+    // Sin nada armado (o se toca la misma): alternar selección
+    setSelectedId((prev) => (prev === id ? null : id))
   }
 
   // Tocar una posición vacía con una ficha del banquillo elegida -> colocarla ahí
@@ -298,7 +331,8 @@ export default function App() {
                     courtHeight={courtH}
                     selected={selectedId === p.id}
                     onMove={handleMove}
-                    onSelect={handleSelectCourt}
+                    onSelect={setSelectedId}
+                    onTap={handleTapCourt}
                     onEdit={openEdit}
                     onDelete={handleDelete}
                     onBench={sendToBench}

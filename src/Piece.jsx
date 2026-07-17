@@ -25,6 +25,7 @@ export default function Piece({
   selected,
   onMove,
   onSelect,
+  onTap,
   onEdit,
   onDelete,
   onBench,
@@ -32,7 +33,12 @@ export default function Piece({
 }) {
   const dragging = useRef(false)
   const moved = useRef(false)
+  const start = useRef({ x: 0, y: 0 })
   const grabOffset = useRef({ dx: 0, dy: 0 })
+
+  // Umbral (px) para distinguir un toque de un arrastre. Por debajo se
+  // considera toque limpio (sirve para armar/intercambiar); por encima, arrastre.
+  const DRAG_THRESHOLD = 4
 
   const left = x * courtWidth
   const top = y * courtHeight
@@ -42,20 +48,26 @@ export default function Piece({
     e.currentTarget.setPointerCapture(e.pointerId)
     dragging.current = true
     moved.current = false
+    start.current = { x: e.clientX, y: e.clientY }
     const rect = getCourtRect()
     if (rect) {
       const px = e.clientX - rect.left
       const py = e.clientY - rect.top
       grabOffset.current = { dx: px - left, dy: py - top }
     }
-    onSelect(player.id)
   }
 
   const handlePointerMove = (e) => {
     if (!dragging.current) return
     const rect = getCourtRect()
     if (!rect) return
-    moved.current = true
+    if (!moved.current) {
+      // Aún dentro del umbral: seguimos tratándolo como posible toque
+      const dx = e.clientX - start.current.x
+      const dy = e.clientY - start.current.y
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      moved.current = true
+    }
     const px = e.clientX - rect.left - grabOffset.current.dx
     const py = e.clientY - rect.top - grabOffset.current.dy
     onMove(player.id, {
@@ -65,11 +77,19 @@ export default function Piece({
   }
 
   const handlePointerUp = (e) => {
+    if (!dragging.current) return
     dragging.current = false
     try {
       e.currentTarget.releasePointerCapture(e.pointerId)
     } catch {
       /* noop */
+    }
+    if (moved.current) {
+      // Fue un arrastre: solo seleccionamos la ficha movida, nunca intercambia
+      onSelect(player.id)
+    } else {
+      // Toque limpio: decide armar / intercambiar / cancelar
+      onTap(player.id)
     }
   }
 
