@@ -279,16 +279,15 @@ export default function App() {
           <SegBtn active={view === 'b'} onClick={() => setView('b')}>{labels.b}</SegBtn>
         </div>
 
-        <button
-          onClick={() => setOrientation((o) => (o === 'vertical' ? 'horizontal' : 'vertical'))}
-          className="flex items-center gap-1.5 rounded bg-elev px-3 py-1.5 text-sm font-medium text-txt ring-1 ring-hairline transition-colors hover:bg-elevh"
-          title="Rotar el campo"
-        >
-          <span className="text-muted">⟳</span>
-          <span>{orientation === 'vertical' ? 'Vertical' : 'Horizontal'}</span>
-        </button>
-
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setOrientation((o) => (o === 'vertical' ? 'horizontal' : 'vertical'))}
+            className="flex items-center gap-1.5 rounded bg-elev px-3 py-1.5 text-sm font-medium text-txt ring-1 ring-hairline transition-colors hover:bg-elevh"
+            title="Rotar el campo"
+          >
+            <span className="text-muted">⟳</span>
+            <span>{orientation === 'vertical' ? 'Vertical' : 'Horizontal'}</span>
+          </button>
           <button
             onClick={openAdd}
             className="rounded bg-accent px-3.5 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accenth"
