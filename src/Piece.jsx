@@ -30,20 +30,14 @@ export default function Piece({
   onDelete,
   onBench,
   getCourtRect,
-  getBenchRect,
+  benchSideAt,
   onBenchHover,
 }) {
   const dragging = useRef(false)
   const moved = useRef(false)
   const start = useRef({ x: 0, y: 0 })
   const grabOffset = useRef({ dx: 0, dy: 0 })
-  const overBench = useRef(false)
-
-  // ¿El puntero está sobre el área del banquillo?
-  const isOverBench = (e) => {
-    const r = getBenchRect?.()
-    return !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
-  }
+  const overBench = useRef(null) // lado del banquillo bajo el puntero: 'a' | 'b' | null
 
   // Umbral (px) para distinguir un toque de un arrastre. Por debajo se
   // considera toque limpio (sirve para armar/intercambiar); por encima, arrastre.
@@ -83,10 +77,10 @@ export default function Piece({
       x: clamp01(px / rect.width),
       y: clamp01(py / rect.height),
     })
-    const over = isOverBench(e)
-    if (over !== overBench.current) {
-      overBench.current = over
-      onBenchHover?.(over)
+    const side = benchSideAt?.(e.clientX, e.clientY) ?? null
+    if (side !== overBench.current) {
+      overBench.current = side
+      onBenchHover?.(side)
     }
   }
 
@@ -100,8 +94,8 @@ export default function Piece({
     }
     if (moved.current) {
       if (overBench.current) {
-        // Soltada sobre el banquillo: enviarla ahí
-        onBench(player.id)
+        // Soltada sobre una columna del banquillo: enviarla a ese lado
+        onBench(player.id, overBench.current)
       } else {
         // Fue un arrastre normal: solo seleccionamos la ficha movida
         onSelect(player.id)
@@ -111,8 +105,8 @@ export default function Piece({
       onTap(player.id)
     }
     if (overBench.current) {
-      overBench.current = false
-      onBenchHover?.(false)
+      overBench.current = null
+      onBenchHover?.(null)
     }
   }
 

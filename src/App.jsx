@@ -36,7 +36,6 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const newId = useIdFactory()
 
-  const [benchHot, setBenchHot] = useState(false) // banquillo resaltado al arrastrar encima
   const [courtHot, setCourtHot] = useState(false) // campo resaltado al arrastrar un chip del banquillo
   const [benchColHot, setBenchColHot] = useState(null) // columna destino resaltada: 'a' | 'b' | null
   const [courtMenu, setCourtMenu] = useState(null) // popover "añadir aquí": { fx, fy, side }
@@ -79,6 +78,15 @@ export default function App() {
   const pieceSize = Math.max(32, Math.min(60, Math.min(courtW, courtH) * 0.13))
   const getCourtRect = useCallback(() => courtElRef.current?.getBoundingClientRect() ?? null, [])
   const getBenchRect = useCallback(() => benchRef.current?.getBoundingClientRect() ?? null, [])
+  // Columna del banquillo bajo el puntero según la mitad del pie (izquierda='a', derecha='b')
+  const benchSideAt = useCallback(
+    (cx, cy) => {
+      const r = getBenchRect()
+      if (!r || cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return null
+      return cx < (r.left + r.right) / 2 ? 'a' : 'b'
+    },
+    [getBenchRect],
+  )
 
   const onCourt = useMemo(() => players.filter((p) => !p.bench), [players])
   const visible = useMemo(
@@ -123,8 +131,8 @@ export default function App() {
     setSelectedId(null)
   }
 
-  const sendToBench = (id) => {
-    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, bench: true } : p)))
+  const sendToBench = (id, side) => {
+    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, bench: true, side: side ?? p.side } : p)))
     setSelectedId(null)
   }
 
@@ -414,8 +422,8 @@ export default function App() {
                     onDelete={handleDelete}
                     onBench={sendToBench}
                     getCourtRect={getCourtRect}
-                    getBenchRect={getBenchRect}
-                    onBenchHover={setBenchHot}
+                    benchSideAt={benchSideAt}
+                    onBenchHover={setBenchColHot}
                   />
                 )
               })}
@@ -469,36 +477,25 @@ export default function App() {
       </main>
 
       {/* Banquillos separados por campo (plegables) */}
-      <footer
-        ref={benchRef}
-        className={`border-t bg-panel shadow-panel transition-colors ${
-          benchHot ? 'border-accent bg-accent/10 ring-2 ring-inset ring-accent' : 'border-hairline'
-        }`}
-      >
+      <footer ref={benchRef} className="border-t border-hairline bg-panel shadow-panel">
         {/* Barra de control */}
         <div className="flex items-center justify-center px-3 py-1.5">
-          {benchHot ? (
-            <span className="rounded bg-accent px-4 py-1 text-xs font-semibold text-white">
-              Suelta aquí para enviar al banquillo
-            </span>
-          ) : (
-            <button
-              onClick={() => setBenchOpen((v) => !v)}
-              className="flex items-center gap-1.5 rounded bg-accent px-4 py-1 text-xs font-semibold text-white transition-colors hover:bg-accenth"
-              title={benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}
+          <button
+            onClick={() => setBenchOpen((v) => !v)}
+            className="flex items-center gap-1.5 rounded bg-accent px-4 py-1 text-xs font-semibold text-white transition-colors hover:bg-accenth"
+            title={benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}
+          >
+            <span>{benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}</span>
+            {benchCount > 0 && (
+              <span className="rounded-full bg-white/25 px-1.5 text-[11px] tabular-nums">{benchCount}</span>
+            )}
+            <span
+              className="inline-block transition-transform"
+              style={{ transform: benchOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}
             >
-              <span>{benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}</span>
-              {benchCount > 0 && (
-                <span className="rounded-full bg-white/25 px-1.5 text-[11px] tabular-nums">{benchCount}</span>
-              )}
-              <span
-                className="inline-block transition-transform"
-                style={{ transform: benchOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}
-              >
-                ▾
-              </span>
-            </button>
-          )}
+              ▾
+            </span>
+          </button>
         </div>
 
         {/* Columnas (colapsables con animación suave) */}
