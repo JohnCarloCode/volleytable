@@ -30,11 +30,20 @@ export default function Piece({
   onDelete,
   onBench,
   getCourtRect,
+  getBenchRect,
+  onBenchHover,
 }) {
   const dragging = useRef(false)
   const moved = useRef(false)
   const start = useRef({ x: 0, y: 0 })
   const grabOffset = useRef({ dx: 0, dy: 0 })
+  const overBench = useRef(false)
+
+  // ¿El puntero está sobre el área del banquillo?
+  const isOverBench = (e) => {
+    const r = getBenchRect?.()
+    return !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+  }
 
   // Umbral (px) para distinguir un toque de un arrastre. Por debajo se
   // considera toque limpio (sirve para armar/intercambiar); por encima, arrastre.
@@ -74,6 +83,11 @@ export default function Piece({
       x: clamp01(px / rect.width),
       y: clamp01(py / rect.height),
     })
+    const over = isOverBench(e)
+    if (over !== overBench.current) {
+      overBench.current = over
+      onBenchHover?.(over)
+    }
   }
 
   const handlePointerUp = (e) => {
@@ -85,11 +99,20 @@ export default function Piece({
       /* noop */
     }
     if (moved.current) {
-      // Fue un arrastre: solo seleccionamos la ficha movida, nunca intercambia
-      onSelect(player.id)
+      if (overBench.current) {
+        // Soltada sobre el banquillo: enviarla ahí
+        onBench(player.id)
+      } else {
+        // Fue un arrastre normal: solo seleccionamos la ficha movida
+        onSelect(player.id)
+      }
     } else {
       // Toque limpio: decide armar / intercambiar / cancelar
       onTap(player.id)
+    }
+    if (overBench.current) {
+      overBench.current = false
+      onBenchHover?.(false)
     }
   }
 

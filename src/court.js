@@ -45,6 +45,12 @@ export function toHalf(side, d, s, orientation) {
   return { fx: vx, fy: 1 - s }
 }
 
+// Lado al que pertenece una posición dentro del CAMPO COMPLETO.
+// Vertical: mitad superior = 'a', inferior = 'b'. Horizontal: izquierda = 'a', derecha = 'b'.
+export function sideFromFull(fx, fy, orientation) {
+  return orientation === 'vertical' ? (fy < 0.5 ? 'a' : 'b') : fx < 0.5 ? 'a' : 'b'
+}
+
 // Fracción dentro del campo completo -> (d, s) para una ficha de un lado dado
 export function fromFull(side, fx, fy, orientation) {
   if (orientation === 'vertical') {

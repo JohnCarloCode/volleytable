@@ -7,13 +7,14 @@ import {
   clamp01,
   courtAspect,
   displayPos,
+  fromFull,
   migratePlayers,
+  sideFromFull,
   sideLabels,
   updatePos,
 } from './court.js'
 
 const DEFAULT_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#8b5cf6', '#f97316', '#ec4899', '#06b6d4']
-const MAX_PER_SIDE = 6 // máximo de jugadores (no balones) por campo
 
 function textColorFor(hex) {
   if (!hex) return '#fff'
@@ -35,8 +36,15 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const newId = useIdFactory()
 
+  const [benchHot, setBenchHot] = useState(false) // banquillo resaltado al arrastrar encima
+  const [courtHot, setCourtHot] = useState(false) // campo resaltado al arrastrar un chip del banquillo
+  const [benchColHot, setBenchColHot] = useState(null) // columna destino resaltada: 'a' | 'b' | null
+  const [courtMenu, setCourtMenu] = useState(null) // popover "añadir aquí": { fx, fy, side }
+  const [pendingPos, setPendingPos] = useState(null) // posición exacta para el próximo jugador: { side, d, s }
   const [areaRef, area] = useElementSize()
   const courtElRef = useRef(null)
+  const benchRef = useRef(null)
+  const benchColRefs = useRef({ a: null, b: null })
   const noticeTimer = useRef(null)
 
   const labels = sideLabels(orientation)
@@ -70,6 +78,7 @@ export default function App() {
 
   const pieceSize = Math.max(32, Math.min(60, Math.min(courtW, courtH) * 0.13))
   const getCourtRect = useCallback(() => courtElRef.current?.getBoundingClientRect() ?? null, [])
+  const getBenchRect = useCallback(() => benchRef.current?.getBoundingClientRect() ?? null, [])
 
   const onCourt = useMemo(() => players.filter((p) => !p.bench), [players])
   const visible = useMemo(
@@ -79,17 +88,18 @@ export default function App() {
   const benchSel = players.find((p) => p.id === benchSelId && p.bench) || null
   const benchCount = useMemo(() => players.filter((p) => p.bench).length, [players])
 
-  // Jugadores (sin balones) en el campo por lado
-  const countSide = useCallback(
-    (side) => players.filter((p) => !p.bench && !p.isBall && p.side === side).length,
-    [players],
-  )
-
   const handleMove = useCallback(
     (id, frac) => {
       setPlayers((prev) =>
         prev.map((p) => {
           if (p.id !== id) return p
+          // Vista completa: la ficha se mueve libre y adopta el campo donde cae.
+          if (view === 'full') {
+            const side = sideFromFull(frac.x, frac.y, orientation)
+            const { d, s } = fromFull(side, frac.x, frac.y, orientation)
+            return { ...p, side, d, s }
+          }
+          // Media pista: solo hay una mitad visible, el lado se conserva.
           const { d, s } = updatePos(p.side, frac.x, frac.y, orientation, view)
           return { ...p, d, s }
         }),
@@ -134,16 +144,63 @@ export default function App() {
     setSelectedId(null)
   }
 
+  const inRect = (r, cx, cy) => !!r && cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom
+
+  // Columna del banquillo bajo el puntero ('a' | 'b' | null)
+  const benchColAt = useCallback((cx, cy) => {
+    for (const s of ['a', 'b']) {
+      if (inRect(benchColRefs.current[s]?.getBoundingClientRect(), cx, cy)) return s
+    }
+    return null
+  }, [])
+
+  // Arrastrar un chip del banquillo: hacia el campo o hacia la otra columna
+  const benchDragMove = useCallback(
+    (cx, cy, fromSide) => {
+      if (inRect(getCourtRect(), cx, cy)) {
+        setCourtHot(true)
+        setBenchColHot(null)
+        return
+      }
+      setCourtHot(false)
+      const col = benchColAt(cx, cy)
+      setBenchColHot(col && col !== fromSide ? col : null)
+    },
+    [getCourtRect, benchColAt],
+  )
+
+  const benchDragEnd = useCallback(
+    (id, cx, cy, fromSide) => {
+      setCourtHot(false)
+      setBenchColHot(null)
+      const r = getCourtRect()
+      // Soltada en el campo -> colocar ahí
+      if (inRect(r, cx, cy)) {
+        const fx = clamp01((cx - r.left) / r.width)
+        const fy = clamp01((cy - r.top) / r.height)
+        const side = view === 'full' ? sideFromFull(fx, fy, orientation) : view
+        const { d, s } = updatePos(side, fx, fy, orientation, view)
+        setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, bench: false, side, d, s } : p)))
+        setBenchSelId(null)
+        return
+      }
+      // Soltada en la otra columna -> mover de banquillo (cambia de lado)
+      const col = benchColAt(cx, cy)
+      if (col && col !== fromSide) {
+        setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, bench: true, side: col } : p)))
+        setBenchSelId(null)
+      }
+      // En cualquier otro caso: se queda donde estaba
+    },
+    [getCourtRect, benchColAt, view, orientation, setPlayers],
+  )
+
   // Toque limpio sobre una ficha del campo (no arrastre)
   const handleTapCourt = (id) => {
-    // Flujo banquillo -> campo (mismo lado)
+    setCourtMenu(null)
+    // Flujo banquillo -> campo: la ficha entrante adopta el lado del jugador que sale
     if (benchSelId && benchSelId !== id) {
-      const target = players.find((p) => p.id === id)
-      if (target && target.side === benchSel?.side) {
-        swap(benchSelId, id)
-      } else {
-        flash('Solo puedes intercambiar con un jugador del mismo campo')
-      }
+      swap(benchSelId, id)
       return
     }
 
@@ -164,35 +221,47 @@ export default function App() {
     setSelectedId((prev) => (prev === id ? null : id))
   }
 
-  // Tocar una posición vacía con una ficha del banquillo elegida -> colocarla ahí
+  // Toque en el fondo del campo: colocar ficha del banquillo, deseleccionar, o menú "añadir aquí"
   const handleCourtBackground = (e) => {
-    if (!benchSelId) {
-      setSelectedId(null)
-      return
-    }
-    e.stopPropagation()
     const rect = getCourtRect()
-    if (!rect || !benchSel) return
+    if (!rect) return
     const fx = clamp01((e.clientX - rect.left) / rect.width)
     const fy = clamp01((e.clientY - rect.top) / rect.height)
-    let side = view
-    if (view === 'full') {
-      side = orientation === 'vertical' ? (fy < 0.5 ? 'a' : 'b') : fx < 0.5 ? 'a' : 'b'
-    }
-    if (side !== benchSel.side) {
-      flash(`Esa ficha es del campo "${labels[benchSel.side]}"`)
+    const side = view === 'full' ? sideFromFull(fx, fy, orientation) : view
+
+    // Con una ficha del banquillo elegida: colocarla aquí (adopta el lado)
+    if (benchSelId && benchSel) {
+      e.stopPropagation()
+      const { d, s } = updatePos(side, fx, fy, orientation, view)
+      setPlayers((prev) => prev.map((p) => (p.id === benchSelId ? { ...p, bench: false, side, d, s } : p)))
+      setBenchSelId(null)
       return
     }
-    if (!benchSel.isBall && countSide(side) >= MAX_PER_SIDE) {
-      flash(`El campo "${labels[side]}" ya tiene ${MAX_PER_SIDE} jugadores`)
+
+    // Con una ficha del campo seleccionada: un toque en vacío la deselecciona
+    if (selectedId) {
+      setSelectedId(null)
+      setCourtMenu(null)
       return
     }
-    const { d, s } = updatePos(side, fx, fy, orientation, view)
-    setPlayers((prev) => prev.map((p) => (p.id === benchSelId ? { ...p, bench: false, side, d, s } : p)))
-    setBenchSelId(null)
+
+    // Sin nada armado: alternar el menú "añadir jugador aquí" en el punto tocado
+    setCourtMenu((cur) => (cur ? null : { fx, fy, side }))
   }
 
-  const openAdd = () => setModal({ mode: 'add' })
+  // Abrir el formulario para crear un jugador en el punto exacto del campo tocado
+  const addPlayerAt = (menu) => {
+    const { d, s } = updatePos(menu.side, menu.fx, menu.fy, orientation, view)
+    setPendingPos({ side: menu.side, d, s })
+    setCourtMenu(null)
+    setModal({ mode: 'add', defaults: { placement: 'court', side: menu.side } })
+  }
+
+  const openAdd = (defaults) => {
+    setPendingPos(null)
+    setCourtMenu(null)
+    setModal({ mode: 'add', defaults })
+  }
   const openEdit = (player) => setModal({ mode: 'edit', player })
 
   const handleSave = (data) => {
@@ -202,13 +271,19 @@ export default function App() {
       return
     }
     const side = data.side
-    const full = countSide(side) >= MAX_PER_SIDE
-    // Va al banquillo si se ha elegido así, o si el campo está lleno
-    const goBench = data.bench || full
-    const sameSide = onCourt.filter((p) => p.side === side).length
+    const goBench = data.bench
     const color = data.color || DEFAULT_COLORS[players.length % DEFAULT_COLORS.length]
-    const s = 0.5 + ((sameSide % 3) - 1) * 0.22
-    const d = 0.45 + Math.floor(sameSide / 3) * 0.14
+    let s, d
+    if (!goBench && pendingPos && pendingPos.side === side) {
+      // Colocación exacta desde el clic en el campo
+      s = pendingPos.s
+      d = pendingPos.d
+    } else {
+      // Reparto automático dentro del campo
+      const sameSide = onCourt.filter((p) => p.side === side).length
+      s = Math.min(0.92, Math.max(0.08, 0.5 + ((sameSide % 3) - 1) * 0.22))
+      d = Math.min(0.92, Math.max(0.08, 0.45 + Math.floor(sameSide / 3) * 0.14))
+    }
     setPlayers((prev) => [
       ...prev,
       {
@@ -220,11 +295,11 @@ export default function App() {
         position: data.position || '',
         side,
         bench: goBench,
-        s: Math.min(0.92, Math.max(0.08, s)),
-        d: Math.min(0.92, Math.max(0.08, d)),
+        s,
+        d,
       },
     ])
-    if (!data.bench && full) flash(`El campo "${labels[side]}" está lleno (${MAX_PER_SIDE}). Añadido al banquillo`)
+    setPendingPos(null)
     setModal(null)
   }
 
@@ -289,7 +364,7 @@ export default function App() {
             <span>{orientation === 'vertical' ? 'Vertical' : 'Horizontal'}</span>
           </button>
           <button
-            onClick={openAdd}
+            onClick={() => openAdd()}
             className="rounded bg-accent px-3.5 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accenth"
           >
             + Jugador
@@ -314,7 +389,10 @@ export default function App() {
       {/* Área del campo */}
       <main ref={areaRef} className="relative flex flex-1 items-center justify-center overflow-hidden p-2 sm:p-4">
         {courtW > 0 && (
-          <div className="relative" style={{ width: courtW, height: courtH }}>
+          <div
+            className={`relative rounded-md transition-shadow ${courtHot ? 'ring-2 ring-accent' : ''}`}
+            style={{ width: courtW, height: courtH }}
+          >
             <Court ref={courtElRef} orientation={orientation} view={view} width={courtW} height={courtH} />
             <div className="absolute inset-0" onPointerDown={handleCourtBackground}>
               {visible.map((p) => {
@@ -336,17 +414,44 @@ export default function App() {
                     onDelete={handleDelete}
                     onBench={sendToBench}
                     getCourtRect={getCourtRect}
+                    getBenchRect={getBenchRect}
+                    onBenchHover={setBenchHot}
                   />
                 )
               })}
             </div>
+
+            {/* Popover: añadir jugador en el punto tocado */}
+            {courtMenu && (
+              <div
+                className="absolute z-40"
+                style={{
+                  left: courtMenu.fx * courtW,
+                  top: courtMenu.fy * courtH,
+                  transform: `translate(-50%, ${courtMenu.fy < 0.22 ? '12px' : 'calc(-100% - 12px)'})`,
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => addPlayerAt(courtMenu)}
+                  className="whitespace-nowrap rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-xl ring-1 ring-black/20 transition-colors hover:bg-accenth"
+                >
+                  + Añadir jugador aquí
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {benchSel && (
           <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-accent/40 bg-panel/95 px-4 py-2 text-center text-sm font-medium text-txt shadow-xl backdrop-blur">
-            Intercambiando <b className="text-accent">{benchSel.name || 'ficha'}</b> · toca un jugador de{' '}
-            <b className="text-accent">{labels[benchSel.side]}</b> o una posición
+            Intercambiando <b className="text-accent">{benchSel.name || 'ficha'}</b> · toca un jugador o una posición del campo
+          </div>
+        )}
+
+        {courtHot && (
+          <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-accent/40 bg-panel/95 px-4 py-2 text-center text-sm font-medium text-txt shadow-xl backdrop-blur">
+            Suelta para colocar en el campo
           </div>
         )}
 
@@ -364,25 +469,36 @@ export default function App() {
       </main>
 
       {/* Banquillos separados por campo (plegables) */}
-      <footer className="border-t border-hairline bg-panel shadow-panel">
+      <footer
+        ref={benchRef}
+        className={`border-t bg-panel shadow-panel transition-colors ${
+          benchHot ? 'border-accent bg-accent/10 ring-2 ring-inset ring-accent' : 'border-hairline'
+        }`}
+      >
         {/* Barra de control */}
         <div className="flex items-center justify-center px-3 py-1.5">
-          <button
-            onClick={() => setBenchOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded bg-accent px-4 py-1 text-xs font-semibold text-white transition-colors hover:bg-accenth"
-            title={benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}
-          >
-            <span>{benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}</span>
-            {benchCount > 0 && (
-              <span className="rounded-full bg-white/25 px-1.5 text-[11px] tabular-nums">{benchCount}</span>
-            )}
-            <span
-              className="inline-block transition-transform"
-              style={{ transform: benchOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}
-            >
-              ▾
+          {benchHot ? (
+            <span className="rounded bg-accent px-4 py-1 text-xs font-semibold text-white">
+              Suelta aquí para enviar al banquillo
             </span>
-          </button>
+          ) : (
+            <button
+              onClick={() => setBenchOpen((v) => !v)}
+              className="flex items-center gap-1.5 rounded bg-accent px-4 py-1 text-xs font-semibold text-white transition-colors hover:bg-accenth"
+              title={benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}
+            >
+              <span>{benchOpen ? 'Esconder banquillo' : 'Mostrar banquillo'}</span>
+              {benchCount > 0 && (
+                <span className="rounded-full bg-white/25 px-1.5 text-[11px] tabular-nums">{benchCount}</span>
+              )}
+              <span
+                className="inline-block transition-transform"
+                style={{ transform: benchOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}
+              >
+                ▾
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Columnas (colapsables con animación suave) */}
@@ -393,19 +509,31 @@ export default function App() {
           <div className="grid grid-cols-2 divide-x divide-hairline border-t border-hairline">
             <BenchColumn
               title={labels.a}
-              count={countSide('a')}
+              side="a"
+              hot={benchColHot === 'a'}
+              columnRef={(el) => (benchColRefs.current.a = el)}
               players={players.filter((p) => p.bench && p.side === 'a')}
               benchSelId={benchSelId}
               onSelect={setBenchSelId}
               onDelete={handleDelete}
+              onAdd={openAdd}
+              getCourtRect={getCourtRect}
+              onDragMove={benchDragMove}
+              onDragEnd={benchDragEnd}
             />
             <BenchColumn
               title={labels.b}
-              count={countSide('b')}
+              side="b"
+              hot={benchColHot === 'b'}
+              columnRef={(el) => (benchColRefs.current.b = el)}
               players={players.filter((p) => p.bench && p.side === 'b')}
               benchSelId={benchSelId}
               onSelect={setBenchSelId}
               onDelete={handleDelete}
+              onAdd={openAdd}
+              getCourtRect={getCourtRect}
+              onDragMove={benchDragMove}
+              onDragEnd={benchDragEnd}
             />
           </div>
         </div>
@@ -414,49 +542,101 @@ export default function App() {
       {modal && (
         <PlayerModal
           initial={modal.mode === 'edit' ? modal.player : null}
+          defaults={modal.defaults}
           labels={labels}
           onSave={handleSave}
-          onClose={() => setModal(null)}
+          onClose={() => {
+            setModal(null)
+            setPendingPos(null)
+          }}
         />
       )}
     </div>
   )
 }
 
-function BenchColumn({ title, count, players, benchSelId, onSelect, onDelete }) {
+function BenchColumn({ title, side, hot, columnRef, players, benchSelId, onSelect, onDelete, onAdd, getCourtRect, onDragMove, onDragEnd }) {
   return (
-    <div className="min-w-0 px-3 py-2.5">
+    <div
+      ref={columnRef}
+      className={`min-w-0 px-3 py-2.5 transition-colors ${hot ? 'bg-accent/15 ring-2 ring-inset ring-accent' : ''}`}
+    >
       <div className="font-display mb-1.5 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
         <span className="truncate">{title}</span>
-        <span className={`ml-auto shrink-0 tabular-nums ${count >= MAX_PER_SIDE ? 'text-accent' : 'text-muted/70'}`}>
-          {count}/{MAX_PER_SIDE} en campo
-        </span>
       </div>
       <div className="thin-scroll flex min-h-[56px] items-center gap-2 overflow-x-auto pb-1">
-        {players.length === 0 && <span className="text-sm text-muted/60">Vacío</span>}
-        {players.map((p) => (
-          <BenchChip
-            key={p.id}
-            player={p}
-            selected={benchSelId === p.id}
-            onSelect={() => onSelect((cur) => (cur === p.id ? null : p.id))}
-            onDelete={() => onDelete(p.id)}
-          />
-        ))}
+        {players.length === 0 ? (
+          <button
+            onClick={() => onAdd({ placement: 'bench', side })}
+            className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accenth"
+          >
+            + Jugador
+          </button>
+        ) : (
+          players.map((p) => (
+            <BenchChip
+              key={p.id}
+              player={p}
+              selected={benchSelId === p.id}
+              onSelect={() => onSelect((cur) => (cur === p.id ? null : p.id))}
+              onDelete={() => onDelete(p.id)}
+              getCourtRect={getCourtRect}
+              onDragMove={onDragMove}
+              onDragEnd={onDragEnd}
+            />
+          ))
+        )}
       </div>
     </div>
   )
 }
 
-function BenchChip({ player, selected, onSelect, onDelete }) {
+function BenchChip({ player, selected, onSelect, onDelete, getCourtRect, onDragMove, onDragEnd }) {
+  const dragging = useRef(false)
+  const moved = useRef(false)
+  const startPt = useRef({ x: 0, y: 0 })
+  const DRAG_THRESHOLD = 6
+
+  const down = (e) => {
+    if (!getCourtRect) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragging.current = true
+    moved.current = false
+    startPt.current = { x: e.clientX, y: e.clientY }
+  }
+  const move = (e) => {
+    if (!dragging.current) return
+    if (!moved.current) {
+      if (Math.hypot(e.clientX - startPt.current.x, e.clientY - startPt.current.y) < DRAG_THRESHOLD) return
+      moved.current = true
+    }
+    onDragMove?.(e.clientX, e.clientY, player.side)
+  }
+  const up = (e) => {
+    if (!dragging.current) return
+    dragging.current = false
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+    if (moved.current) onDragEnd?.(player.id, e.clientX, e.clientY, player.side)
+    else onSelect()
+  }
+
   return (
     <div
-      onClick={onSelect}
-      className={`relative flex shrink-0 cursor-pointer flex-col items-center rounded-md px-2 py-1.5 transition ${
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
+      style={{ touchAction: 'none' }}
+      className={`relative flex shrink-0 cursor-grab flex-col items-center rounded-md px-2 py-1.5 transition ${
         selected ? 'bg-accent/15 ring-1 ring-accent' : 'ring-1 ring-transparent hover:bg-white/5'
       }`}
     >
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation()
           onDelete()

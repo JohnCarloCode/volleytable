@@ -43,15 +43,17 @@ function fileToDataURL(file, maxSize = 256) {
   })
 }
 
-export default function PlayerModal({ initial, labels, onSave, onClose }) {
+export default function PlayerModal({ initial, defaults, labels, onSave, onClose }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [label, setLabel] = useState(initial?.label ?? '')
   const [color, setColor] = useState(initial?.color ?? '#3b82f6')
   const [photo, setPhoto] = useState(initial?.photo ?? null)
   const [position, setPosition] = useState(initial?.position ?? '')
-  // Ubicación y lado: vacíos por defecto (obligatorios al crear)
-  const [placement, setPlacement] = useState(initial ? (initial.bench ? 'bench' : 'court') : '')
-  const [side, setSide] = useState(initial?.side ?? '')
+  // Ubicación y lado: al crear se prellenan con los defaults del origen (campo/banquillo)
+  const [placement, setPlacement] = useState(
+    initial ? (initial.bench ? 'bench' : 'court') : defaults?.placement ?? '',
+  )
+  const [side, setSide] = useState(initial?.side ?? defaults?.side ?? '')
   const fileRef = useRef(null)
 
   const canSave = placement !== '' && side !== ''
