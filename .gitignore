@@ -1,0 +1,265 @@
+# ==========================================================================
+# .gitignore genérico — cubre este proyecto y proyectos en general
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# Sistema operativo
+# --------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+[Dd]esktop.ini
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# --------------------------------------------------------------------------
+# Editores e IDEs
+# --------------------------------------------------------------------------
+.vscode/
+.vscode-test/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.history/
+*.code-workspace
+.netrwhist
+Session.vim
+.vim/
+*.swp
+*.swo
+*.swn
+.\#*
+\#*\#
+.emacs.desktop
+.emacs.desktop.lock
+
+# --------------------------------------------------------------------------
+# Logs y archivos temporales
+# --------------------------------------------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.pid
+*.seed
+*.pid.lock
+tmp/
+temp/
+cache/
+.cache/
+
+# --------------------------------------------------------------------------
+# Variables de entorno y secretos
+# --------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.local
+secrets.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+.credentials/
+
+# --------------------------------------------------------------------------
+# Node / JavaScript / TypeScript
+# --------------------------------------------------------------------------
+node_modules/
+jspm_packages/
+.npm/
+.yarn/
+.yarn-integrity
+.pnp.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.eslintcache
+.stylelintcache
+.parcel-cache/
+*.tsbuildinfo
+.node_repl_history
+
+# Frameworks y bundlers
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.astro/
+.vite/
+.turbo/
+.vercel/
+.netlify/
+.output/
+coverage/
+.nyc_output/
+
+# --------------------------------------------------------------------------
+# Python
+# --------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.eggs/
+*.egg
+.ipynb_checkpoints/
+
+# --------------------------------------------------------------------------
+# Java / Kotlin / JVM
+# --------------------------------------------------------------------------
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+target/
+.gradle/
+build/
+!gradle-wrapper.jar
+hs_err_pid*
+replay_pid*
+
+# --------------------------------------------------------------------------
+# Otros lenguajes
+# --------------------------------------------------------------------------
+# Go
+*.exe
+*.exe~
+*.dll
+*.test
+*.out
+vendor/
+go.work.sum
+
+# Rust
+/target/
+Cargo.lock
+**/*.rs.bk
+
+# Ruby
+*.gem
+.bundle/
+/.yardoc/
+/_yardoc/
+/coverage/
+/spec/reports/
+.rspec_status
+
+# PHP
+/vendor/
+composer.phar
+
+# .NET / C#
+bin/
+obj/
+*.user
+*.suo
+*.dll
+*.pdb
+
+# C / C++
+*.o
+*.obj
+*.a
+*.lib
+*.dylib
+
+# --------------------------------------------------------------------------
+# Bases de datos
+# --------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+dump.rdb
+
+# --------------------------------------------------------------------------
+# Archivos comprimidos y binarios grandes
+# --------------------------------------------------------------------------
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# --------------------------------------------------------------------------
+# Herramientas varias
+# --------------------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+.serverless/
+.docker/
+.DS_Store
+*.iml
+
+# Claude / IA
+.claude/

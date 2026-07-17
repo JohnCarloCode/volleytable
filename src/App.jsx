@@ -25,7 +25,7 @@ function textColorFor(hex) {
 }
 
 export default function App() {
-  const [orientation, setOrientation] = useLocalStorage('vb.orientation', 'vertical')
+  const [orientation, setOrientation] = useLocalStorage('vb.orientation', 'horizontal')
   const [view, setView] = useLocalStorage('vb.view', 'full') // 'full' | 'a' | 'b'
   const [players, setPlayers] = useLocalStorage('vb.players', [])
   const [benchOpen, setBenchOpen] = useLocalStorage('vb.benchOpen', true)
