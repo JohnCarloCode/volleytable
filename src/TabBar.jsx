@@ -15,7 +15,7 @@ export default function TabBar({ boards, activeId, onSelect, onNew, onDuplicate,
   }, [menuOpen])
 
   return (
-    <div className="flex items-stretch gap-1 border-b border-hairline bg-panel/90 px-2 pt-1.5 backdrop-blur">
+    <div className="relative z-50 flex items-stretch gap-1 border-b border-hairline bg-panel/90 px-2 pt-1.5 backdrop-blur">
       <div className="thin-scroll flex min-w-0 flex-1 items-stretch gap-1 overflow-x-auto">
         {boards.map((b) => {
           const active = b.id === activeId
