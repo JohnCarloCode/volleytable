@@ -36,6 +36,7 @@ export default function TabBar({ boards, activeId, onSelect, onNew, onDuplicate,
                 <input
                   autoFocus
                   defaultValue={b.name}
+                  onFocus={(e) => e.target.select()}
                   onPointerDown={(e) => e.stopPropagation()}
                   onBlur={(e) => {
                     const v = e.target.value.trim()
